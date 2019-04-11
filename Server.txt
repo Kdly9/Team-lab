@@ -1,0 +1,151 @@
+// Server.cpp : Defines the entry point for the console application.
+
+
+#undef UNICODE
+
+#define WIN32_LEAN_AND_MEAN
+
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <iostream>
+
+
+#pragma comment (lib, "Ws2_32.lib")
+// #pragma comment (lib, "Mswsock.lib")
+
+#define DEFAULT_BUFLEN 256
+#define DEFAULT_PORT "5555"
+
+int __cdecl main(void)
+{
+	setlocale(LC_ALL, "Russian");
+	WSADATA wsaData;
+	int iResult;
+
+	SOCKET ListenSocket = INVALID_SOCKET, ClientSocket = INVALID_SOCKET; // Создание переменных для сокетов
+
+	struct addrinfo *result = NULL, hints; // Создание структур по типу addrinfo
+
+	int iSendResult;
+	char recvbuf[DEFAULT_BUFLEN]; 
+	int recvbuflen = DEFAULT_BUFLEN; 
+	// Инициализация WinSock
+	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if (iResult != 0)
+	{
+		printf("WSAStartup завершился с ошибкой: %d\n", iResult);
+		return 1;
+	}
+
+	ZeroMemory(&hints, sizeof(hints)); 
+	
+	hints.ai_family = AF_INET; 
+	hints.ai_socktype = SOCK_STREAM; 
+	hints.ai_protocol = 0; 
+	hints.ai_flags = AI_PASSIVE;
+
+	
+	iResult = getaddrinfo(NULL, DEFAULT_PORT, &hints, &result);
+	if (iResult != 0)
+	{
+		printf("Получение адреса завершилось с ошибкой: %d\n", iResult);
+		WSACleanup();
+		return 1;
+	}
+
+	
+	ListenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+	if (ListenSocket == INVALID_SOCKET)
+	{
+		printf("При создании сокета возникла ошибка: %ld\n", WSAGetLastError());
+		freeaddrinfo(result);
+		WSACleanup();
+		return 1;
+	}
+
+	
+	iResult = bind(ListenSocket, result->ai_addr, (int)result->ai_addrlen);
+	if (iResult == SOCKET_ERROR)
+	{
+		printf("bind завершилась с ошибкой: %d\n", WSAGetLastError());
+		freeaddrinfo(result);
+		closesocket(ListenSocket);
+		WSACleanup();
+		return 1;
+	}
+
+	freeaddrinfo(result); 
+	
+	iResult = listen(ListenSocket, SOMAXCONN);
+	if (iResult == SOCKET_ERROR)
+	{
+		printf("При прослушивании возникла ошибка: %d\n", WSAGetLastError());
+		closesocket(ListenSocket);
+		WSACleanup();
+		return 1;
+	}
+
+	
+
+	ClientSocket = accept(ListenSocket, NULL, NULL);
+	if (ClientSocket == INVALID_SOCKET)
+	{
+		printf("accept завершилась с ошибкой: %d\n", WSAGetLastError());
+		closesocket(ListenSocket);
+		WSACleanup();
+		return 1;
+	}
+
+	
+	closesocket(ListenSocket);
+
+	
+	do {
+		ZeroMemory(&recvbuf, DEFAULT_BUFLEN);
+		iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
+		if (iResult > 0)
+		{
+			std::cout << "От клиента пришло сообщение: " << recvbuf << std::endl;
+			// Отправка сообщения в ответ
+			iSendResult = send(ClientSocket, "Ваше сообщение успешно получено!\n", DEFAULT_BUFLEN, 0);
+			if (iSendResult == SOCKET_ERROR)
+			{
+				printf("При отправке сообщения возникла ошибка: %d\n", WSAGetLastError());
+				closesocket(ClientSocket);
+				WSACleanup();
+				return 1;
+			}
+		}
+		else if (iResult == 0)
+			printf("Соединение было завершено!\n");
+		else
+		{
+			printf("При получении сообщения возникла ошибка: %d\n", WSAGetLastError());
+			closesocket(ClientSocket);
+			WSACleanup();
+			return 1;
+		}
+
+	} while (iResult > 0);
+
+	
+	iResult = shutdown(ClientSocket, SD_SEND);
+	if (iResult == SOCKET_ERROR) {
+		printf("shutdown завершилась с ошибкой: %d\n", WSAGetLastError());
+		closesocket(ClientSocket);
+		WSACleanup();
+		return 1;
+	}
+
+	
+	closesocket(ClientSocket);
+	WSACleanup();
+
+	return 0;
+}
+
+
+
