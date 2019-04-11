@@ -1,0 +1,96 @@
+#include <iostream>
+#include <string>
+#include <WS2tcpip.h>
+#include <cmath> 
+#pragma comment(lib, "ws2_32.lib")
+#define PI 3.14159265358979323846 // число ПИ
+
+using namespace std;
+unsigned char outs[32];
+int f = 60, fi = 30, A = 400;
+double t = 0, znach;
+void main()
+{
+	setlocale(LC_ALL, "russian");
+	
+	
+	string ipAddress = "192.168.1.202";			// IP Address of the server
+	int port = 1111;						// Listening port # on the server
+
+	// Initialize WinSock
+	WSAData data;
+	WORD ver = MAKEWORD(2, 2);
+	int wsResult = WSAStartup(ver, &data);
+	if (wsResult != 0)
+	{
+		cerr << "Can't start Winsock, Err #" << wsResult << endl;
+		return;
+	}
+
+	// Create socket
+	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock == INVALID_SOCKET)
+	{
+		cerr << "Can't create socket, Err #" << WSAGetLastError() << endl;
+		WSACleanup();
+		return;
+	}
+
+	// Fill in a hint structure
+	sockaddr_in hint;
+	hint.sin_family = AF_INET;
+	hint.sin_port = htons(port);
+	inet_pton(AF_INET, ipAddress.c_str(), &hint.sin_addr);
+
+	// Connect to server
+	int connResult = connect(sock, (sockaddr*)&hint, sizeof(hint));
+	if (connResult == SOCKET_ERROR)
+	{
+		cerr << "Can't connect to server, Err #" << WSAGetLastError() << endl;
+		closesocket(sock);
+		WSACleanup();
+		return;
+	}
+
+	// Do-while loop to send and receive data
+	double buf;
+	double userInput;
+
+	
+		// Prompt the user for some text
+		cout << "> ";
+		while (t < 10000.0) {
+			userInput = A * sin(2 * PI *f* t + fi);
+			t += 1.0;
+			uint8_t *bytePointer = (uint8_t *)&userInput;
+			for (size_t index = 0; index < sizeof(double); index++)
+			{
+				uint8_t byte = bytePointer[index];
+
+				for (int bit = 0; bit < 8; bit++)
+				{
+					outs[bit]= (byte & 1);
+					byte <<= 1;
+				}
+			}
+			for(int j=0; j<8; j++)
+			cout << outs[j];
+			int sendResult = send(sock, "lel", 16, 0);
+			if (sendResult != SOCKET_ERROR)
+			{
+				// Wait for response
+				
+				
+				
+					// Echo response to console
+					cout << "SERVER> " << endl;
+				
+			}
+		}
+
+	
+
+	// Gracefully close down everything
+	closesocket(sock);
+	WSACleanup();
+}
